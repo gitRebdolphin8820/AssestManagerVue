@@ -355,10 +355,39 @@
             <label>资产名称 *</label>
             <input type="text" v-model="assetForm.name" required placeholder="例如：定期存款、余额宝等">
           </div>
+          
+          <!-- 扣款账户（投资类资产显示） -->
+          <div class="form-group" v-if="['fund', 'stock', 'bond', 'insurance', 'gold'].includes(assetForm.subType)">
+            <label>扣款账户 *</label>
+            <select v-model="assetForm.paymentSource">
+              <option value="">-- 选择扣款账户 --</option>
+              <option v-for="account in accounts" :key="account.id" :value="account.id">
+                {{ account.name }}
+              </option>
+            </select>
+            <p style="color: #718096; font-size: 12px; margin-top: 5px;">购买资金将从此账户扣除</p>
+          </div>
+          
           <div class="form-row">
-            <div class="form-group">
+            <div class="form-group" v-if="assetForm.subType !== 'gold'">
               <label>当前价值 *</label>
               <input type="number" v-model.number="assetForm.value" step="0.01" required placeholder="0.00">
+            </div>
+            <div class="form-group" v-else>
+              <label>持有克数 *</label>
+              <input type="number" v-model.number="assetForm.grams" step="0.01" placeholder="0.00">
+            </div>
+          </div>
+          
+          <!-- 黄金资产特殊字段 -->
+          <div class="form-row" v-if="assetForm.subType === 'gold'">
+            <div class="form-group">
+              <label>当前金价 (元/克)</label>
+              <input type="number" v-model.number="currentGoldPrice" step="0.01" style="background: #fffbeb; color: #b45309; font-weight: 600;">
+            </div>
+            <div class="form-group">
+              <label>预估价值</label>
+              <input type="text" :value="formatCurrency(assetForm.grams * currentGoldPrice)" readonly style="background: #f7fafc;">
             </div>
           </div>
           <div class="form-row">
@@ -666,6 +695,8 @@ function openAssetModal() {
     subType: 'current',
     accountId: accounts.value[0]?.id || '',
     value: 0,
+    grams: 0,
+    paymentSource: '',
     rate: '',
     maturityDate: '',
     remark: ''
@@ -679,7 +710,11 @@ function closeAssetModal() {
 
 function editAsset(asset) {
   isEditingAsset.value = true;
-  assetForm.value = { ...asset };
+  assetForm.value = {
+    ...asset,
+    grams: asset.grams || 0,
+    paymentSource: asset.paymentSource || ''
+  };
   showAssetModal.value = true;
 }
 
@@ -688,6 +723,11 @@ function saveAsset() {
     ...assetForm.value,
     updatedAt: new Date().toISOString()
   };
+  
+  // 处理黄金资产的价值计算
+  if (asset.subType === 'gold') {
+    asset.value = asset.grams * currentGoldPrice.value;
+  }
   
   if (!asset.id) {
     asset.id = generateId();
