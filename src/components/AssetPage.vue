@@ -130,74 +130,86 @@
     <!-- 按资产类型视图 -->
     <div id="assetViewByType" class="asset-view" v-if="currentAssetView === 'type'">
       <div class="asset-grid" id="assetList">
+        <!-- 按类型分组显示资产 -->
         <div 
-          v-for="asset in assets" 
-          :key="asset.id"
+          v-for="(items, type) in groupedAssets" 
+          :key="type"
           class="asset-card"
+          :style="{ borderLeftColor: typeColors[type] }"
         >
-          <div class="asset-header">
-            <div class="asset-name">{{ asset.name }}</div>
-            <div class="asset-type">{{ getAssetTypeName(asset.subType) }}</div>
+          <div class="asset-card-title">
+            <span v-html="typeNames[type]"></span>
+            <span style="margin-left: auto; font-size: 14px; color: #718096;">
+              {{ formatCurrency(typeTotals[type]) }}
+            </span>
           </div>
-          <div class="asset-value">{{ formatCurrency(asset.value) }}</div>
-          <div class="asset-details">
-            <div v-if="asset.rate" class="asset-detail-item">
-              <span class="detail-label">利率:</span>
-              <span class="detail-value">{{ asset.rate }}%</span>
-            </div>
-            <div v-if="asset.maturityDate" class="asset-detail-item">
-              <span class="detail-label">到期日:</span>
-              <span class="detail-value">{{ formatDate(asset.maturityDate) }}</span>
-            </div>
-            <div v-if="asset.remark" class="asset-detail-item">
-              <span class="detail-label">备注:</span>
-              <span class="detail-value">{{ asset.remark }}</span>
-            </div>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: typePercents[type] + '%', opacity: 0.7 }"></div>
           </div>
-          <div class="asset-actions">
-            <button class="btn btn-sm btn-primary" @click="editAsset(asset)">
-              <i class="fas fa-edit"></i> 编辑
-            </button>
-            <button class="btn btn-sm btn-danger" @click="deleteAsset(asset.id)">
-              <i class="fas fa-trash"></i> 删除
-            </button>
+          <div style="font-size: 12px; color: #a0aec0; margin-top: 5px; text-align: right;">
+            占比 {{ typePercents[type] }}%
+          </div>
+          
+          <!-- 资产项 -->
+          <div 
+            v-for="item in items" 
+            :key="item.id"
+            class="asset-item"
+          >
+            <div>
+              <span class="asset-item-label">{{ item.name }} {{ item.code ? `(${item.code})` : '' }}</span>
+              <span v-if="item.subType && assetSubTypes[item.subType]?.name" style="font-size: 11px; color: #667eea; margin-left: 5px;">
+                [{{ assetSubTypes[item.subType].name }}]
+              </span>
+              <div v-if="item.quantity && item.costPrice" style="font-size: 11px; color: #a0aec0;">
+                {{ item.quantity }}股 × {{ formatCurrency(item.costPrice) }}
+              </div>
+              <div v-if="item.remark" style="font-size: 11px; color: #a0aec0;">{{ item.remark }}</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="asset-item-value">{{ formatCurrency(item.value || (item.quantity * item.costPrice)) }}</span>
+              <button class="icon-btn edit-btn" @click="editAsset(item)" title="编辑"><i class="fas fa-edit"></i></button>
+              <button class="icon-btn delete-btn" @click="deleteAsset(item.id)" title="删除"><i class="fas fa-trash"></i></button>
+            </div>
           </div>
         </div>
         
-        <!-- 黄金资产 -->
-        <div 
-          v-for="goldAsset in goldAssets" 
-          :key="goldAsset.id"
-          class="asset-card gold"
-        >
-          <div class="asset-header">
-            <div class="asset-name">{{ goldAsset.name }}</div>
-            <div class="asset-type">黄金</div>
+        <!-- 黄金资产卡片 -->
+        <div v-if="goldAssets.length > 0" class="asset-card gold-card">
+          <div class="asset-card-title">
+            <i class="fas fa-coins"></i> 黄金资产
+            <span style="margin-left: auto; font-size: 14px; color: #975a16;">
+              {{ formatCurrency(goldTotal) }}
+            </span>
           </div>
-          <div class="asset-value">{{ formatCurrency(goldAsset.grams * currentGoldPrice) }}</div>
-          <div class="asset-details">
-            <div class="asset-detail-item">
-              <span class="detail-label">持有克数:</span>
-              <span class="detail-value">{{ goldAsset.grams }}克</span>
-            </div>
-            <div v-if="goldAsset.remark" class="asset-detail-item">
-              <span class="detail-label">备注:</span>
-              <span class="detail-value">{{ goldAsset.remark }}</span>
-            </div>
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: goldPercent + '%', opacity: 0.7 }"></div>
           </div>
-          <div class="asset-actions">
-            <button class="btn btn-sm btn-primary" @click="editGoldAsset(goldAsset)">
-              <i class="fas fa-edit"></i> 编辑
-            </button>
-            <button class="btn btn-sm btn-danger" @click="deleteGoldAsset(goldAsset.id)">
-              <i class="fas fa-trash"></i> 删除
-            </button>
+          <div style="font-size: 12px; color: #a0aec0; margin-top: 5px; text-align: right;">
+            占比 {{ goldPercent }}% | 共 {{ goldGrams }} 克
+          </div>
+          
+          <!-- 黄金资产项 -->
+          <div 
+            v-for="gold in goldAssets" 
+            :key="gold.id"
+            class="asset-item"
+          >
+            <div>
+              <span class="asset-item-label">{{ gold.name }}</span>
+              <span class="gold-gram">{{ gold.grams }} 克</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span class="asset-item-value">{{ formatCurrency(gold.grams * currentGoldPrice) }}</span>
+              <button class="icon-btn edit-btn" @click="editGoldAsset(gold)" title="编辑"><i class="fas fa-edit"></i></button>
+              <button class="icon-btn delete-btn" @click="deleteGoldAsset(gold.id)" title="删除"><i class="fas fa-trash"></i></button>
+            </div>
           </div>
         </div>
         
-        <div v-if="assets.length === 0 && goldAssets.length === 0" class="empty-state">
-          <div class="empty-icon"><i class="fas fa-coins"></i></div>
-          <div>暂无资产数据</div>
+        <div v-if="Object.keys(groupedAssets).length === 0 && goldAssets.length === 0" class="empty-state" style="grid-column: 1/-1;">
+          <div class="empty-icon"><i class="fas fa-gem"></i></div>
+          <div>暂无资产记录，点击"新增资产"、"新增黄金"开始记录</div>
         </div>
       </div>
     </div>
@@ -206,30 +218,94 @@
     <div id="assetViewByAccount" class="asset-view" v-if="currentAssetView === 'account'">
       <div id="accountList">
         <div 
-          v-for="account in accounts" 
+          v-for="account in accountGroups" 
           :key="account.id"
           class="account-card"
         >
-          <div class="account-header">
-            <div class="account-name">{{ account.name }}</div>
-            <div class="account-type">{{ getAccountTypeName(account.type) }}</div>
+          <div class="account-header" :class="account.typeConfig.headerClass">
+            <div class="account-title">
+              <i :class="'fas ' + account.typeConfig.icon"></i>
+              <span :id="'account-name-' + account.id" class="account-name-display">{{ account.name }}</span>
+              <button class="icon-btn edit-btn" @click="editAccountName(account.id)" title="编辑账户名"><i class="fas fa-edit"></i></button>
+              <span :class="'account-badge badge-' + account.type">{{ account.typeConfig.name }}</span>
+            </div>
+            <div class="account-total">{{ formatCurrency(account.totalValue) }}</div>
           </div>
-          <div class="account-balance">{{ formatCurrency(account.balance) }}</div>
-          <div class="account-assets">
+          <div class="account-body">
+            <!-- 按子类型分组显示资产 -->
             <div 
-              v-for="asset in getAccountAssets(account.id)" 
-              :key="asset.id"
-              class="account-asset-item"
+              v-for="(subTypeAssets, subType) in account.subTypeGroups" 
+              :key="subType"
+              class="sub-asset-category"
             >
-              <div class="account-asset-name">{{ asset.name }}</div>
-              <div class="account-asset-value">{{ formatCurrency(asset.value) }}</div>
+              <div class="sub-asset-header">
+                <div class="sub-asset-title">
+                  <i class="fas fa-folder"></i>
+                  {{ assetSubTypes[subType]?.name || '其他' }}
+                  <span :class="'sub-asset-tag ' + (assetSubTypes[subType]?.tagClass || '')">
+                    {{ assetSubTypes[subType]?.tag || '其他' }}
+                  </span>
+                </div>
+                <div class="sub-asset-amount">{{ formatCurrency(subTypeAssets.reduce((sum, a) => sum + parseFloat(a.value || 0), 0)) }}</div>
+              </div>
+              
+              <!-- 子类型资产项 -->
+              <div 
+                v-for="asset in subTypeAssets" 
+                :key="asset.id"
+                class="sub-asset-item"
+              >
+                <div>
+                  <div class="sub-asset-name">{{ asset.name }}</div>
+                  <div v-if="asset.rate" style="font-size: 11px; color: #a0aec0;">利率: {{ asset.rate }}%</div>
+                  <div v-if="asset.remark" style="font-size: 11px; color: #a0aec0;">{{ asset.remark }}</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <div class="sub-asset-value">{{ formatCurrency(asset.value) }}</div>
+                  <button class="icon-btn edit-btn" @click="editAsset(asset)" title="编辑"><i class="fas fa-edit"></i></button>
+                  <button class="icon-btn delete-btn" @click="deleteAsset(asset.id)" title="删除"><i class="fas fa-trash"></i></button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 黄金资产 -->
+            <div v-if="account.goldAssets.length > 0" class="sub-asset-category">
+              <div class="sub-asset-header">
+                <div class="sub-asset-title">
+                  <i class="fas fa-coins"></i>
+                  黄金资产
+                  <span class="sub-asset-tag tag-gold">黄金</span>
+                </div>
+                <div class="sub-asset-amount">{{ formatCurrency(account.goldValue) }}</div>
+              </div>
+              
+              <!-- 黄金资产项 -->
+              <div 
+                v-for="gold in account.goldAssets" 
+                :key="gold.id"
+                class="sub-asset-item"
+              >
+                <div>
+                  <div class="sub-asset-name">{{ gold.name }}</div>
+                  <div style="font-size: 11px; color: #a0aec0;">{{ gold.grams }} 克</div>
+                  <div v-if="gold.remark" style="font-size: 11px; color: #a0aec0;">{{ gold.remark }}</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                  <div class="sub-asset-value">{{ formatCurrency(gold.grams * currentGoldPrice) }}</div>
+                  <button class="icon-btn edit-btn" @click="editGoldAsset(gold)" title="编辑"><i class="fas fa-edit"></i></button>
+                  <button class="icon-btn delete-btn" @click="deleteGoldAsset(gold.id)" title="删除"><i class="fas fa-trash"></i></button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
         
-        <div v-if="accounts.length === 0" class="empty-state">
+        <div v-if="accountGroups.length === 0" class="empty-state" style="background: white; border-radius: 12px; padding: 60px;">
           <div class="empty-icon"><i class="fas fa-university"></i></div>
-          <div>暂无账户数据</div>
+          <div>暂无账户记录，点击"新增资产"开始记录</div>
+          <div style="margin-top: 15px; color: #a0aec0; font-size: 14px;">
+            您可以添加银行卡、微信钱包、支付宝等账户
+          </div>
         </div>
       </div>
     </div>
@@ -549,6 +625,36 @@ const assetSubTypes = {
   other: { name: '其他', tag: '其他', tagClass: '' }
 };
 
+// 资产类型名称
+const typeNames = {
+  bank_realtime: '<i class="fas fa-university"></i> 银行实时可用',
+  bank_non_realtime: '<i class="fas fa-university"></i> 银行非实时',
+  wallet_realtime: '<i class="fas fa-wallet"></i> 钱包实时可用',
+  wallet_non_realtime: '<i class="fas fa-wallet"></i> 钱包非实时',
+  fund: '<i class="fas fa-chart-line"></i> 基金',
+  stock: '<i class="fas fa-chart-bar"></i> 股票',
+  bond: '<i class="fas fa-file-contract"></i> 债券',
+  insurance: '<i class="fas fa-shield-alt"></i> 保险',
+  real_estate: '<i class="fas fa-home"></i> 房产',
+  vehicle: '<i class="fas fa-car"></i> 车辆',
+  other: '<i class="fas fa-box"></i> 其他'
+};
+
+// 资产类型颜色
+const typeColors = {
+  bank_realtime: '#48bb78',
+  bank_non_realtime: '#38a169',
+  wallet_realtime: '#07c160',
+  wallet_non_realtime: '#059669',
+  fund: '#ed8936',
+  stock: '#9f7aea',
+  bond: '#4299e1',
+  insurance: '#f6ad55',
+  real_estate: '#667eea',
+  vehicle: '#f56565',
+  other: '#a0aec0'
+};
+
 // 账户类型配置
 const accountTypes = {
   bank: { name: '银行卡', icon: 'fa-university', color: '#667eea', headerClass: '' },
@@ -627,6 +733,192 @@ const otherDebt = computed(() => {
     .reduce((sum, debt) => sum + parseFloat(debt.amount || 0), 0);
 });
 
+// 计算总资产价值（包含黄金）
+const totalAssetsValue = computed(() => {
+  const assetValue = assets.value.reduce((sum, asset) => sum + parseFloat(asset.value || 0), 0);
+  const goldValue = goldAssets.value.reduce((sum, gold) => sum + (gold.grams * currentGoldPrice.value), 0);
+  return assetValue + goldValue;
+});
+
+// 按类型分组的资产
+const groupedAssets = computed(() => {
+  const grouped = {};
+  
+  assets.value.forEach(asset => {
+    let type = 'other';
+    const accountType = asset.accountType || 'bank';
+    const subType = asset.subType || 'current';
+    
+    // 根据账户类型和资产子类型进行分类
+    const isRealTime = ['current', 'yuebao', 'lingqianbao'].includes(subType) || 
+                      (subType === 'wealth_mgmt' && asset.remark && asset.remark.includes('实时'));
+    
+    if (accountType === 'bank') {
+      // 银行类资产
+      if (isRealTime) {
+        type = 'bank_realtime'; // 银行实时可用
+      } else {
+        type = 'bank_non_realtime'; // 银行非实时
+      }
+    } else if (accountType === 'alipay' || accountType === 'wechat') {
+      // 支付宝/微信类资产
+      if (isRealTime) {
+        type = 'wallet_realtime'; // 钱包实时可用
+      } else {
+        type = 'wallet_non_realtime'; // 钱包非实时
+      }
+    } else {
+      // 其他类型资产
+      switch (subType) {
+        case 'fund':
+          type = 'fund';
+          break;
+        case 'stock':
+          type = 'stock';
+          break;
+        case 'bond':
+          type = 'bond';
+          break;
+        case 'insurance':
+          type = 'insurance';
+          break;
+        case 'real_estate':
+          type = 'real_estate';
+          break;
+        case 'vehicle':
+          type = 'vehicle';
+          break;
+        default:
+          type = 'other';
+      }
+    }
+    
+    if (!grouped[type]) grouped[type] = [];
+    grouped[type].push(asset);
+  });
+  
+  return grouped;
+});
+
+// 各类型资产的总价值
+const typeTotals = computed(() => {
+  const totals = {};
+  
+  Object.entries(groupedAssets.value).forEach(([type, items]) => {
+    totals[type] = items.reduce((sum, item) => {
+      if (item.type === 'stock') {
+        return sum + (parseFloat(item.value) || (parseFloat(item.quantity) * parseFloat(item.costPrice)));
+      }
+      return sum + parseFloat(item.value || 0);
+    }, 0);
+  });
+  
+  return totals;
+});
+
+// 各类型资产的占比
+const typePercents = computed(() => {
+  const percents = {};
+  const total = totalAssetsValue.value;
+  
+  Object.entries(typeTotals.value).forEach(([type, value]) => {
+    percents[type] = total > 0 ? (value / total * 100).toFixed(1) : 0;
+  });
+  
+  return percents;
+});
+
+// 黄金资产总价值
+const goldTotal = computed(() => {
+  return goldAssets.value.reduce((sum, gold) => sum + (gold.grams * currentGoldPrice.value), 0);
+});
+
+// 黄金资产总克数
+const goldGrams = computed(() => {
+  return goldAssets.value.reduce((sum, gold) => sum + parseFloat(gold.grams || 0), 0).toFixed(2);
+});
+
+// 黄金资产占比
+const goldPercent = computed(() => {
+  const total = totalAssetsValue.value;
+  return total > 0 ? (goldTotal.value / total * 100).toFixed(1) : 0;
+});
+
+// 按账户分组的资产
+const accountGroups = computed(() => {
+  const groups = [];
+  const accountMap = new Map();
+  
+  // 首先处理账户数据
+  accounts.value.forEach(account => {
+    accountMap.set(account.id, {
+      id: account.id,
+      name: account.name,
+      type: account.type,
+      typeConfig: accountTypes[account.type] || accountTypes.bank,
+      assets: [],
+      goldAssets: [],
+      subTypeGroups: {}
+    });
+  });
+  
+  // 处理普通资产
+  assets.value.forEach(asset => {
+    const accountId = asset.accountId || asset.id;
+    
+    // 如果资产没有关联账户，创建一个新的账户条目
+    if (!accountMap.has(accountId)) {
+      const accountType = asset.accountType || 'bank';
+      accountMap.set(accountId, {
+        id: accountId,
+        name: asset.accountName || asset.name,
+        type: accountType,
+        typeConfig: accountTypes[accountType] || accountTypes.bank,
+        assets: [],
+        goldAssets: [],
+        subTypeGroups: {}
+      });
+    }
+    
+    const account = accountMap.get(accountId);
+    account.assets.push(asset);
+    
+    // 按子类型分组
+    const subType = asset.subType || 'current';
+    if (!account.subTypeGroups[subType]) {
+      account.subTypeGroups[subType] = [];
+    }
+    account.subTypeGroups[subType].push(asset);
+  });
+  
+  // 处理黄金资产
+  goldAssets.value.forEach(gold => {
+    const accountId = gold.accountId || null;
+    
+    if (accountId && accountMap.has(accountId)) {
+      accountMap.get(accountId).goldAssets.push(gold);
+    }
+  });
+  
+  // 计算每个账户的总价值
+  accountMap.forEach(account => {
+    // 先从账户本身获取余额
+    const accountBalance = accounts.value.find(a => a.id === account.id)?.balance || 0;
+    
+    // 再加上资产价值
+    const assetsValue = account.assets.reduce((sum, a) => sum + parseFloat(a.value || 0), 0) + parseFloat(accountBalance || 0);
+    const goldValue = account.goldAssets.reduce((sum, g) => sum + (g.grams * currentGoldPrice.value), 0);
+    
+    account.assetsValue = assetsValue;
+    account.goldValue = goldValue;
+    account.totalValue = assetsValue + goldValue;
+    
+    groups.push(account);
+  });
+  
+  return groups;
+});
+
 // 方法
 function loadData() {
   assets.value = getAllAssets();
@@ -682,6 +974,23 @@ function saveAccount() {
   };
   
   saveAccountFromService(account);
+  
+  // 同时创建对应的资产记录，这样账户余额就能显示在资产列表中
+  const asset = {
+    id: generateId(),
+    name: accountForm.value.name,
+    subType: 'current',
+    accountId: account.id,
+    accountName: accountForm.value.name,
+    accountType: accountForm.value.type,
+    value: accountForm.value.balance,
+    rate: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    remark: accountForm.value.remark
+  };
+  
+  saveAssetFromService(asset);
   loadData();
   closeAccountModal();
 }
@@ -724,32 +1033,43 @@ function saveAsset() {
     updatedAt: new Date().toISOString()
   };
   
-  // 处理黄金资产的价值计算
-  if (asset.subType === 'gold') {
-    asset.value = asset.grams * currentGoldPrice.value;
-  }
-  
   if (!asset.id) {
     asset.id = generateId();
     asset.createdAt = new Date().toISOString();
   }
   
-  saveAssetFromService(asset);
+  // 处理黄金资产
+  if (asset.subType === 'gold') {
+    asset.value = asset.grams * currentGoldPrice.value;
+    saveGoldAssetFromService(asset);
+  } else {
+    saveAssetFromService(asset);
+  }
+  
   loadData();
   closeAssetModal();
 }
 
 function deleteAsset(assetId) {
   if (confirm('确定要删除这个资产吗？')) {
+    // 先尝试删除普通资产
     deleteAssetFromService(assetId);
+    // 再尝试删除黄金资产
+    deleteGoldAssetFromService(assetId);
     loadData();
   }
 }
 
 // 黄金资产管理
 function editGoldAsset(goldAsset) {
-  // 黄金资产编辑功能待实现
-  console.log('编辑黄金资产:', goldAsset);
+  isEditingAsset.value = true;
+  assetForm.value = {
+    ...goldAsset,
+    subType: 'gold',
+    grams: goldAsset.grams || 0,
+    paymentSource: goldAsset.paymentSource || ''
+  };
+  showAssetModal.value = true;
 }
 
 function deleteGoldAsset(goldId) {
@@ -805,6 +1125,33 @@ function deleteDebt(debtId) {
   if (confirm('确定要删除这个负债吗？')) {
     deleteDebtFromService(debtId);
     loadData();
+  }
+}
+
+// 编辑账户名称
+function editAccountName(accountId) {
+  const newName = prompt('请输入新的账户名称:');
+  if (newName && newName.trim()) {
+    const trimmedName = newName.trim();
+    
+    // 更新所有属于该账户的资产的 accountName
+    assets.value.forEach(asset => {
+      if (asset.accountId === accountId || asset.id === accountId) {
+        asset.accountName = trimmedName;
+        saveAssetFromService(asset);
+      }
+    });
+    
+    // 更新黄金资产的 accountName
+    goldAssets.value.forEach(gold => {
+      if (gold.accountId === accountId) {
+        gold.accountName = trimmedName;
+        saveGoldAssetFromService(gold);
+      }
+    });
+    
+    loadData();
+    alert('账户名称修改成功');
   }
 }
 
